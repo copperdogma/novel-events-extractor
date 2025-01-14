@@ -38,15 +38,34 @@ final class CalendarManagerTests: XCTestCase {
     }
     
     func testCalendarFiltering() async throws {
-        // Test blacklist
-        let blacklistedCalendars = Set(["Birthdays"])
+        // Test multiple blacklisted calendars
+        let blacklistedCalendars = Set(["Birthdays", "Holidays"])
         calendarManager = CalendarManager(eventStore: mockEventStore,
                                         outputFormatter: outputFormatter,
                                         blacklistedCalendars: blacklistedCalendars)
         
         let historicalEvents = try await calendarManager.fetchHistoricalEvents()
-        XCTAssertFalse(historicalEvents.contains { $0.calendar.title == "Birthdays" },
-                      "Events from blacklisted calendar should be excluded")
+        XCTAssertFalse(historicalEvents.contains { blacklistedCalendars.contains($0.calendar.title) },
+                      "Events from blacklisted calendars should be excluded")
+        
+        // Test case sensitivity
+        let mixedCaseBlacklist = Set(["birthdays", "HOLIDAYS"])
+        calendarManager = CalendarManager(eventStore: mockEventStore,
+                                        outputFormatter: outputFormatter,
+                                        blacklistedCalendars: mixedCaseBlacklist)
+        
+        let caseEvents = try await calendarManager.fetchHistoricalEvents()
+        XCTAssertTrue(caseEvents.contains { $0.calendar.title == "Birthdays" },
+                     "Calendar filtering should be case-sensitive")
+        
+        // Test empty blacklist/whitelist
+        calendarManager = CalendarManager(eventStore: mockEventStore,
+                                        outputFormatter: outputFormatter,
+                                        blacklistedCalendars: [],
+                                        whitelistedCalendars: nil)
+        
+        let allEvents = try await calendarManager.fetchHistoricalEvents()
+        XCTAssertFalse(allEvents.isEmpty, "Empty blacklist should not exclude any events")
         
         // Test whitelist
         let whitelistedCalendars = Set(["Work"])
@@ -67,8 +86,19 @@ final class CalendarManagerTests: XCTestCase {
         let events = try await calendarManager.fetchHistoricalEvents()
         XCTAssertTrue(events.allSatisfy { $0.calendar.title == "Work" },
                      "Events should be filtered by both blacklist and whitelist")
-        XCTAssertFalse(events.contains { $0.calendar.title == "Birthdays" },
+        XCTAssertFalse(events.contains { blacklistedCalendars.contains($0.calendar.title) },
                       "Blacklisted events should be excluded even if in whitelist")
+        
+        // Test debug output
+        outputFormatter = OutputFormatter(isDebugEnabled: true)
+        calendarManager = CalendarManager(eventStore: mockEventStore,
+                                        outputFormatter: outputFormatter,
+                                        blacklistedCalendars: blacklistedCalendars)
+        
+        try await calendarManager.requestAccess()
+        let debugOutput = outputFormatter.getDebugOutput()
+        XCTAssertTrue(debugOutput.contains("(blacklisted)"), "Debug output should indicate blacklisted calendars")
+        XCTAssertTrue(debugOutput.contains("(included)"), "Debug output should indicate included calendars")
     }
     
     func testDateRanges() async throws {

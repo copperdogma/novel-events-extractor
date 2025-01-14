@@ -3,8 +3,8 @@ import Foundation
 
 protocol EventStoreType {
     func requestAccess(to entityType: EKEntityType) async throws -> Bool
-    func calendars(for entityType: EKEntityType) -> [CalendarType]
-    func events(matching predicate: NSPredicate) -> [EventType]
+    func getCalendars(for entityType: EKEntityType) -> [CalendarType]
+    func getEvents(matching predicate: NSPredicate) -> [EventType]
     func predicateForEvents(withStart startDate: Date, end endDate: Date, calendars: [CalendarType]?) -> NSPredicate
 }
 
@@ -22,12 +22,12 @@ protocol EventType {
 
 // Make EKEventStore conform to EventStoreType
 extension EKEventStore: EventStoreType {
-    func calendars(for entityType: EKEntityType) -> [CalendarType] {
-        return calendars(for: entityType) as [CalendarType]
+    func getCalendars(for entityType: EKEntityType) -> [CalendarType] {
+        return calendars(for: entityType)
     }
     
-    func events(matching predicate: NSPredicate) -> [EventType] {
-        return events(matching: predicate) as [EventType]
+    func getEvents(matching predicate: NSPredicate) -> [EventType] {
+        return events(matching: predicate)
     }
     
     func predicateForEvents(withStart startDate: Date, end endDate: Date, calendars: [CalendarType]?) -> NSPredicate {
@@ -67,7 +67,7 @@ class CalendarManager {
         }
         
         // Log available calendars and their status
-        let calendars = eventStore.calendars(for: .event)
+        let calendars = eventStore.getCalendars(for: .event)
         outputFormatter.addDebug("\nAvailable calendars:")
         for calendar in calendars {
             let status = if blacklistedCalendars.contains(calendar.title) {
@@ -96,7 +96,7 @@ class CalendarManager {
     }
     
     private func fetchEvents(from startDate: Date, to endDate: Date) async throws -> [EventType] {
-        let calendars = eventStore.calendars(for: .event)
+        let calendars = eventStore.getCalendars(for: .event)
         let filteredCalendars = calendars.filter { calendar in
             // If calendar is blacklisted, exclude it
             guard !blacklistedCalendars.contains(calendar.title) else {
@@ -118,7 +118,7 @@ class CalendarManager {
                                                     end: endDate,
                                                     calendars: filteredCalendars)
         
-        let events = eventStore.events(matching: predicate)
+        let events = eventStore.getEvents(matching: predicate)
         outputFormatter.addDebug("Found \(events.count) events")
         return events
     }

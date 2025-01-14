@@ -11,11 +11,11 @@ class MockEventStore: EventStoreType {
         return shouldGrantAccess
     }
     
-    func calendars(for entityType: EKEntityType) -> [CalendarType] {
+    func getCalendars(for entityType: EKEntityType) -> [CalendarType] {
         return mockCalendars
     }
     
-    func events(matching predicate: NSPredicate) -> [EventType] {
+    func getEvents(matching predicate: NSPredicate) -> [EventType] {
         return mockEvents.filter { event in
             if let datePredicate = predicate as? EKEventSearchPredicate {
                 let startDate = datePredicate.startDate
