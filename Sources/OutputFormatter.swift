@@ -33,7 +33,9 @@ class OutputFormatter {
         
         // Add generation timestamp
         let now = Date()
-        let timestampFormatter = ISO8601DateFormatter()
+        let timestampFormatter = DateFormatter()
+        timestampFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss zzz"
+        timestampFormatter.timeZone = .current
         output += "Generated: \(timestampFormatter.string(from: now))\n\n"
         
         // Format each event

@@ -6,88 +6,80 @@ import Foundation
 /// Debug output is controlled by OutputFormatter's isDebugEnabled flag.
 class CalendarManager {
     private let eventStore = EKEventStore()
-    private var isAuthorized = false
-    private let blacklistedCalendars = Set(["Birthdays"])  // Using Set for more efficient lookups
     private let outputFormatter: OutputFormatter
+    private let blacklistedCalendars: Set<String>
+    private let whitelistedCalendars: Set<String>?
     
-    init(outputFormatter: OutputFormatter) {
+    init(outputFormatter: OutputFormatter, blacklistedCalendars: Set<String> = [], whitelistedCalendars: Set<String>? = nil) {
         self.outputFormatter = outputFormatter
+        self.blacklistedCalendars = blacklistedCalendars
+        self.whitelistedCalendars = whitelistedCalendars
     }
     
     func requestAccess() async throws {
-        switch EKEventStore.authorizationStatus(for: .event) {
-        case .authorized:
-            isAuthorized = true
-        case .notDetermined:
-            isAuthorized = try await eventStore.requestAccess(to: .event)
-        default:
+        let granted = try await eventStore.requestAccess(to: .event)
+        guard granted else {
             throw CalendarError.accessDenied
         }
         
-        guard isAuthorized else {
-            throw CalendarError.accessDenied
+        // Log available calendars and their status
+        let calendars = eventStore.calendars(for: .event)
+        outputFormatter.addDebug("\nAvailable calendars:")
+        for calendar in calendars {
+            let status = if blacklistedCalendars.contains(calendar.title) {
+                "blacklisted"
+            } else if let whitelist = whitelistedCalendars {
+                whitelist.contains(calendar.title) ? "whitelisted" : "excluded"
+            } else {
+                "included"
+            }
+            outputFormatter.addDebug("- \(calendar.title) (\(status))")
         }
     }
     
-    func fetchEvents(from startDate: Date, to endDate: Date) async throws -> [EKEvent] {
-        guard isAuthorized else {
-            throw CalendarError.notAuthorized
+    func fetchHistoricalEvents() async throws -> [EKEvent] {
+        let now = Date()
+        let calendar = Calendar.current
+        let oneYearAgo = calendar.date(byAdding: .year, value: -1, to: now)!
+        return try await fetchEvents(from: oneYearAgo, to: now)
+    }
+    
+    func fetchUpcomingEvents() async throws -> [EKEvent] {
+        let now = Date()
+        let calendar = Calendar.current
+        let twoWeeksAhead = calendar.date(byAdding: .day, value: 14, to: now)!
+        return try await fetchEvents(from: now, to: twoWeeksAhead)
+    }
+    
+    private func fetchEvents(from startDate: Date, to endDate: Date) async throws -> [EKEvent] {
+        let calendars = eventStore.calendars(for: .event)
+        let filteredCalendars = calendars.filter { calendar in
+            // If calendar is blacklisted, exclude it
+            guard !blacklistedCalendars.contains(calendar.title) else {
+                return false
+            }
+            
+            // If whitelist exists, only include calendars in the whitelist
+            if let whitelist = whitelistedCalendars {
+                return whitelist.contains(calendar.title)
+            }
+            
+            // If no whitelist, include all non-blacklisted calendars
+            return true
         }
         
-        // Get all calendars
-        let allCalendars = eventStore.calendars(for: .event)
+        outputFormatter.addDebug("\nFetching events from \(filteredCalendars.count) calendars")
         
-        // Debug section start - DO NOT REMOVE
-        // This section is crucial for verifying calendar filtering behavior
-        outputFormatter.addDebug("\nDEBUG: Calendar Analysis")
-        outputFormatter.addDebug("==================")
-        outputFormatter.addDebug("\nAll calendars:")
-        for calendar in allCalendars {
-            outputFormatter.addDebug("- \(calendar.title) (ID: \(calendar.calendarIdentifier)) [\(calendar.type.rawValue)]")
-        }
-        
-        // First, filter out the blacklisted calendars
-        let allowedCalendars = allCalendars.filter { calendar in
-            let isBlacklisted = blacklistedCalendars.contains(calendar.title)
-            outputFormatter.addDebug("\nChecking calendar: \(calendar.title)")
-            outputFormatter.addDebug("- Type: \(calendar.type.rawValue)")
-            outputFormatter.addDebug("- Source: \(calendar.source?.title ?? "unknown")")
-            outputFormatter.addDebug("- Blacklisted: \(isBlacklisted)")
-            return !isBlacklisted
-        }
-        
-        outputFormatter.addDebug("\nCalendar filtering summary:")
-        outputFormatter.addDebug("- Total calendars: \(allCalendars.count)")
-        outputFormatter.addDebug("- Allowed calendars: \(allowedCalendars.count)")
-        outputFormatter.addDebug("- Blacklisted calendars: \(allCalendars.count - allowedCalendars.count)")
-        // Debug section end
-        
-        // Only fetch events from allowed calendars
         let predicate = eventStore.predicateForEvents(withStart: startDate,
                                                     end: endDate,
-                                                    calendars: allowedCalendars)
+                                                    calendars: filteredCalendars)
         
         let events = eventStore.events(matching: predicate)
-        outputFormatter.addDebug("\nEvent filtering:")
-        outputFormatter.addDebug("- Initial event count: \(events.count)")
-        
-        // Additional safety check for any birthday-related events that might have synced
-        let filteredEvents = events.filter { event in
-            let title = event.title?.lowercased() ?? ""
-            let isAllowed = !title.contains("birthday")
-            if !isAllowed {
-                outputFormatter.addDebug("- Filtered out birthday event: \(event.title ?? "") from calendar \(event.calendar.title)")
-            }
-            return isAllowed
-        }
-        
-        outputFormatter.addDebug("- Final event count: \(filteredEvents.count)")
-        
-        return filteredEvents
+        outputFormatter.addDebug("Found \(events.count) events")
+        return events
     }
 }
 
 enum CalendarError: Error {
     case accessDenied
-    case notAuthorized
 } 

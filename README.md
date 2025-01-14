@@ -10,7 +10,7 @@ A Swift command-line tool that analyzes your calendar events to identify novel o
   - Recognizes similar event titles
   - Considers events within an hour of each other as potentially related
   - Maintains calendar context for better pattern recognition
-- Calendar filtering with blacklist support
+- Calendar filtering with blacklist/whitelist support
 - Outputs results to both console and file
 
 ## Usage
@@ -22,8 +22,35 @@ swift build
 
 2. Run the program:
 ```bash
-swift run
+# Basic usage
+swift run NovelEventsExtractor
+
+# With calendar filtering
+swift run NovelEventsExtractor --blacklist "Birthdays,Holidays"
+swift run NovelEventsExtractor --whitelist "Work,Personal"
+
+# Using filter files
+swift run NovelEventsExtractor --blacklist-file blacklist.txt
+swift run NovelEventsExtractor --whitelist-file whitelist.txt
+
+# Enable debug output
+swift run NovelEventsExtractor --debug
 ```
+
+### Calendar Filtering
+
+You can filter which calendars to analyze using either blacklists (exclude specific calendars) or whitelists (include only specific calendars):
+
+- **Blacklist options**:
+  - `--blacklist "Calendar1,Calendar2"` - Comma-separated list of calendars to exclude
+  - `--blacklist-file path/to/file.txt` - File containing calendar names to exclude (one per line)
+
+- **Whitelist options**:
+  - `--whitelist "Calendar1,Calendar2"` - Comma-separated list of calendars to include
+  - `--whitelist-file path/to/file.txt` - File containing calendar names to include (one per line)
+
+- **Debug output**:
+  - `--debug` - Enable detailed debug output, including calendar filtering information
 
 The program will:
 - Request calendar access (required on first run)
@@ -47,11 +74,9 @@ The program uses several strategies to identify novel events:
 
 2. **Novelty Analysis**: Events are scored based on how well they match existing patterns. Events with low pattern scores are considered novel.
 
-3. **Calendar Filtering**: Supports blacklisting specific calendars (e.g., "Birthdays") to exclude them from analysis. 
-
+3. **Calendar Filtering**: Supports both blacklisting and whitelisting calendars to customize which events are analyzed.
 
 ## To Do
-- add command line switch for blacklists and whitelists, accepting either a file or a comma separated list of calendar names
 - create tests
 - make some sort of scheduler to run this on a regular basis
 - have output options after generating the file, like email or slack
