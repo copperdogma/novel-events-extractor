@@ -122,7 +122,9 @@ class CalendarManager {
         
         let events = try eventStore.getEvents(matching: predicate)
         outputFormatter.addDebug("Found \(events.count) events")
-        return events
+        
+        // Sort events chronologically by start date
+        return events.sorted { $0.startDate < $1.startDate }
     }
 }
 

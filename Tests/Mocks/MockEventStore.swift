@@ -38,9 +38,17 @@ class MockEventStore: EventStoreType {
         return NSPredicate { event, _ in
             guard let event = event as? EventType else { return false }
             guard let eventStartDate = event.startDate else { return false }
+            guard let eventCalendar = event.calendar else { return false }
             
             // Check if event is within date range (exclusive)
-            return eventStartDate > startDate && eventStartDate < endDate
+            let isInDateRange = eventStartDate > startDate && eventStartDate < endDate
+            
+            // Check if event's calendar is in the allowed calendars list
+            let isAllowedCalendar = calendars?.contains { calendar in
+                calendar.title == eventCalendar.title
+            } ?? true
+            
+            return isInDateRange && isAllowedCalendar
         }
     }
 } 
