@@ -3,6 +3,7 @@ import EventKit
 
 class MockEventStore: EventStoreType {
     var shouldGrantAccess = true
+    var shouldThrowOnFetch = false
     var requestAccessCalled = false
     var getCalendarsCalled = false
     var getEventsCalled = false
@@ -23,12 +24,23 @@ class MockEventStore: EventStoreType {
         return calendars
     }
     
-    func getEvents(matching predicate: NSPredicate) -> [EventType] {
+    func getEvents(matching predicate: NSPredicate) throws -> [EventType] {
         getEventsCalled = true
-        return events
+        if shouldThrowOnFetch {
+            throw CalendarError.accessDenied
+        }
+        return events.filter { event in
+            predicate.evaluate(with: event)
+        }
     }
     
     func predicateForEvents(withStart startDate: Date, end endDate: Date, calendars: [CalendarType]?) -> NSPredicate {
-        return NSPredicate(value: true)
+        return NSPredicate { event, _ in
+            guard let event = event as? EventType else { return false }
+            guard let eventStartDate = event.startDate else { return false }
+            
+            // Check if event is within date range (exclusive)
+            return eventStartDate > startDate && eventStartDate < endDate
+        }
     }
 } 

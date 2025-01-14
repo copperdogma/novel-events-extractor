@@ -4,7 +4,7 @@ import Foundation
 protocol EventStoreType {
     func requestAccess(to entityType: EKEntityType) async throws -> Bool
     func getCalendars(for entityType: EKEntityType) -> [CalendarType]
-    func getEvents(matching predicate: NSPredicate) -> [EventType]
+    func getEvents(matching predicate: NSPredicate) throws -> [EventType]
     func predicateForEvents(withStart startDate: Date, end endDate: Date, calendars: [CalendarType]?) -> NSPredicate
 }
 
@@ -26,7 +26,7 @@ extension EKEventStore: EventStoreType {
         return calendars(for: entityType)
     }
     
-    func getEvents(matching predicate: NSPredicate) -> [EventType] {
+    func getEvents(matching predicate: NSPredicate) throws -> [EventType] {
         return events(matching: predicate)
     }
     
@@ -120,7 +120,7 @@ class CalendarManager {
                                                     end: endDate,
                                                     calendars: filteredCalendars)
         
-        let events = eventStore.getEvents(matching: predicate)
+        let events = try eventStore.getEvents(matching: predicate)
         outputFormatter.addDebug("Found \(events.count) events")
         return events
     }
