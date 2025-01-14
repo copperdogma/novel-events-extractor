@@ -14,25 +14,35 @@ struct EventPattern {
     }
     
     // Check if this pattern is similar to another event
-    func isSimilarTo(event: EKEvent, calendar: Calendar) -> Bool {
+    func isSimilarTo(event: EventType, calendar: Calendar) -> Bool {
         let eventTitle = event.title?.lowercased() ?? ""
         let patternTitle = title.lowercased()
         
-        // Check if titles are similar (either exact match or one contains the other)
-        let titleMatches = patternTitle == eventTitle || 
-                         patternTitle.contains(eventTitle) || 
-                         eventTitle.contains(patternTitle)
+        // For low-frequency events (less than monthly), require exact title match
+        let titleMatches = if frequency < 12 {
+            patternTitle == eventTitle
+        } else {
+            // For frequent events, allow more flexible matching
+            patternTitle == eventTitle || 
+            (patternTitle.contains(eventTitle) && eventTitle.count > 5) || 
+            (eventTitle.contains(patternTitle) && patternTitle.count > 5)
+        }
         
         // Check if times are within 1 hour of each other
         let timeComponents = calendar.dateComponents([.hour, .minute], from: event.startDate)
         let patternTime = calendar.dateComponents([.hour, .minute], from: timeOfDay)
         let hourDiff = abs((timeComponents.hour ?? 0) - (patternTime.hour ?? 0))
         
+        // Check if it's the same day of the week
+        let eventDayOfWeek = calendar.component(.weekday, from: event.startDate)
+        let dayMatches = eventDayOfWeek == dayOfWeek
+        
         // Consider events similar if they're in the same calendar, have similar titles,
-        // and occur at similar times
+        // occur at similar times, and on the same day of the week
         return self.calendar == event.calendar.title &&
                titleMatches &&
-               hourDiff <= 1
+               hourDiff <= 1 &&
+               dayMatches
     }
 }
 
@@ -44,19 +54,23 @@ class PatternDetector {
         self.outputFormatter = outputFormatter
     }
     
-    func analyzeEvents(_ events: [EKEvent]) {
+    func analyzeEvents(_ events: [EventType]) {
         var patternMap: [String: Int] = [:]
         let calendar = Calendar.current
         
         outputFormatter.addDebug("\nAnalyzing event patterns:")
         
         for event in events {
-            let dayOfWeek = calendar.component(.weekday, from: event.startDate)
-            let timeComponents = calendar.dateComponents([.hour, .minute], from: event.startDate)
+            guard let startDate = event.startDate,
+                  let title = event.title,
+                  let calendarTitle = event.calendar?.title else {
+                continue
+            }
+            
+            let dayOfWeek = calendar.component(.weekday, from: startDate)
+            let timeComponents = calendar.dateComponents([.hour, .minute], from: startDate)
             let hour = timeComponents.hour ?? 0
             let minute = timeComponents.minute ?? 0
-            let title = event.title ?? ""
-            let calendarTitle = event.calendar.title
             
             // Create a unique key for this event pattern
             let key = "\(dayOfWeek)|\(hour):\(minute)|\(title)|\(calendarTitle)"
@@ -114,32 +128,29 @@ class PatternDetector {
         }
     }
     
-    func getPatternScore(for event: EKEvent) -> Double {
+    func getPatternScore(for event: EventType) -> Double {
         let calendar = Calendar.current
         let title = event.title ?? ""
         
-        // Debug scoring for Nicole teaching events
-        if title.lowercased().contains("nicole teaching") {
-            outputFormatter.addDebug("\nScoring teaching event:")
-            outputFormatter.addDebug("- Title: \(title)")
-            outputFormatter.addDebug("- Day: \(calendar.component(.weekday, from: event.startDate))")
-            let timeComponents = calendar.dateComponents([.hour, .minute], from: event.startDate)
-            outputFormatter.addDebug("- Time: \(timeComponents.hour ?? 0):\(timeComponents.minute ?? 0)")
-            outputFormatter.addDebug("- Calendar: \(event.calendar.title)")
-            
-            outputFormatter.addDebug("\nMatching against patterns:")
-            for pattern in patterns {
-                if pattern.title.lowercased().contains("nicole teaching") {
-                    let similar = pattern.isSimilarTo(event: event, calendar: calendar)
-                    outputFormatter.addDebug("\nPattern:")
-                    outputFormatter.addDebug("- Title: \(pattern.title) (similar: \(similar))")
-                    outputFormatter.addDebug("- Day: \(pattern.dayOfWeek)")
-                    let patternTime = calendar.dateComponents([.hour, .minute], from: pattern.timeOfDay)
-                    outputFormatter.addDebug("- Time: \(patternTime.hour ?? 0):\(patternTime.minute ?? 0)")
-                    outputFormatter.addDebug("- Calendar: \(pattern.calendar)")
-                    outputFormatter.addDebug("- Score: \(pattern.score)")
-                }
-            }
+        // Debug all events
+        outputFormatter.addDebug("\nScoring event:")
+        outputFormatter.addDebug("- Title: \(title)")
+        outputFormatter.addDebug("- Day: \(calendar.component(.weekday, from: event.startDate))")
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: event.startDate)
+        outputFormatter.addDebug("- Time: \(timeComponents.hour ?? 0):\(timeComponents.minute ?? 0)")
+        outputFormatter.addDebug("- Calendar: \(event.calendar?.title ?? "")")
+        
+        outputFormatter.addDebug("\nMatching against patterns:")
+        for pattern in patterns {
+            let similar = pattern.isSimilarTo(event: event, calendar: calendar)
+            outputFormatter.addDebug("\nPattern:")
+            outputFormatter.addDebug("- Title: \(pattern.title) (similar: \(similar))")
+            outputFormatter.addDebug("- Day: \(pattern.dayOfWeek)")
+            let patternTime = calendar.dateComponents([.hour, .minute], from: pattern.timeOfDay)
+            outputFormatter.addDebug("- Time: \(patternTime.hour ?? 0):\(patternTime.minute ?? 0)")
+            outputFormatter.addDebug("- Calendar: \(pattern.calendar)")
+            outputFormatter.addDebug("- Frequency: \(pattern.frequency)")
+            outputFormatter.addDebug("- Score: \(pattern.score)")
         }
         
         // Find similar patterns and get the highest score
@@ -148,15 +159,11 @@ class PatternDetector {
         }
         
         if let maxScore = similarPatterns.map({ $0.score }).max() {
-            if title.lowercased().contains("nicole teaching") {
-                outputFormatter.addDebug("Final score: \(maxScore)")
-            }
+            outputFormatter.addDebug("\nFinal score: \(maxScore)")
             return maxScore
         }
         
-        if title.lowercased().contains("nicole teaching") {
-            outputFormatter.addDebug("No matching patterns found, score: 0.0")
-        }
+        outputFormatter.addDebug("\nNo matching patterns found, score: 0.0")
         return 0.0
     }
 } 

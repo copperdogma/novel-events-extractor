@@ -27,6 +27,10 @@ class OutputFormatter {
         debugOutput += message + "\n"
     }
     
+    func getDebugOutput() -> String {
+        return debugOutput
+    }
+    
     func formatNovelEvents(_ events: [NovelEvent], lookAheadDays: Int) -> String {
         var output = isDebugEnabled ? debugOutput + "\n" : ""
         output += "Novel events found in next \(lookAheadDays) days:\n\n"
