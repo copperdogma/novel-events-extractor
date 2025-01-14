@@ -77,8 +77,8 @@ struct NovelEventsExtractor: ParsableCommand {
                 let historicalEvents = try await calendarManager.fetchHistoricalEvents()
                 let upcomingEvents = try await calendarManager.fetchUpcomingEvents()
                 
-                patternDetector.analyzeEvents(historicalEvents)
-                let novelEvents = noveltyAnalyzer.findNovelEvents(in: upcomingEvents)
+                patternDetector.analyzeEvents(historicalEvents as! [EKEvent])
+                let novelEvents = noveltyAnalyzer.findNovelEvents(in: upcomingEvents as! [EKEvent])
                 
                 // Format and write results
                 let output = outputFormatter.formatNovelEvents(novelEvents, lookAheadDays: 14)

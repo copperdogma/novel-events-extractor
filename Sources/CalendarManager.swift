@@ -1,16 +1,60 @@
 import EventKit
 import Foundation
 
+protocol EventStoreType {
+    func requestAccess(to entityType: EKEntityType) async throws -> Bool
+    func calendars(for entityType: EKEntityType) -> [CalendarType]
+    func events(matching predicate: NSPredicate) -> [EventType]
+    func predicateForEvents(withStart startDate: Date, end endDate: Date, calendars: [CalendarType]?) -> NSPredicate
+}
+
+protocol CalendarType {
+    var title: String { get }
+    var type: EKCalendarType { get }
+}
+
+protocol EventType {
+    var title: String! { get }
+    var startDate: Date! { get }
+    var endDate: Date! { get }
+    var calendar: EKCalendar! { get }
+}
+
+// Make EKEventStore conform to EventStoreType
+extension EKEventStore: EventStoreType {
+    func calendars(for entityType: EKEntityType) -> [CalendarType] {
+        return calendars(for: entityType) as [CalendarType]
+    }
+    
+    func events(matching predicate: NSPredicate) -> [EventType] {
+        return events(matching: predicate) as [EventType]
+    }
+    
+    func predicateForEvents(withStart startDate: Date, end endDate: Date, calendars: [CalendarType]?) -> NSPredicate {
+        return predicateForEvents(withStart: startDate, end: endDate, calendars: calendars as? [EKCalendar])
+    }
+}
+
+// Make EKCalendar conform to CalendarType
+extension EKCalendar: CalendarType {}
+
+// Make EKEvent conform to EventType
+extension EKEvent: EventType {}
+
 /// CalendarManager handles calendar access and event filtering.
 /// Contains essential debug logging for calendar filtering verification - DO NOT REMOVE.
 /// Debug output is controlled by OutputFormatter's isDebugEnabled flag.
 class CalendarManager {
-    private let eventStore = EKEventStore()
+    private let eventStore: EventStoreType
     private let outputFormatter: OutputFormatter
     private let blacklistedCalendars: Set<String>
     private let whitelistedCalendars: Set<String>?
     
-    init(outputFormatter: OutputFormatter, blacklistedCalendars: Set<String> = [], whitelistedCalendars: Set<String>? = nil) {
+    init(eventStore: EventStoreType = EKEventStore(),
+         outputFormatter: OutputFormatter,
+         blacklistedCalendars: Set<String> = [],
+         whitelistedCalendars: Set<String>? = nil) {
+        self.eventStore = eventStore
         self.outputFormatter = outputFormatter
         self.blacklistedCalendars = blacklistedCalendars
         self.whitelistedCalendars = whitelistedCalendars
@@ -37,21 +81,21 @@ class CalendarManager {
         }
     }
     
-    func fetchHistoricalEvents() async throws -> [EKEvent] {
+    func fetchHistoricalEvents() async throws -> [EventType] {
         let now = Date()
         let calendar = Calendar.current
         let oneYearAgo = calendar.date(byAdding: .year, value: -1, to: now)!
         return try await fetchEvents(from: oneYearAgo, to: now)
     }
     
-    func fetchUpcomingEvents() async throws -> [EKEvent] {
+    func fetchUpcomingEvents() async throws -> [EventType] {
         let now = Date()
         let calendar = Calendar.current
         let twoWeeksAhead = calendar.date(byAdding: .day, value: 14, to: now)!
         return try await fetchEvents(from: now, to: twoWeeksAhead)
     }
     
-    private func fetchEvents(from startDate: Date, to endDate: Date) async throws -> [EKEvent] {
+    private func fetchEvents(from startDate: Date, to endDate: Date) async throws -> [EventType] {
         let calendars = eventStore.calendars(for: .event)
         let filteredCalendars = calendars.filter { calendar in
             // If calendar is blacklisted, exclude it
