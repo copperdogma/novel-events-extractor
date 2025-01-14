@@ -2,7 +2,7 @@ import EventKit
 import Foundation
 
 struct NovelEvent {
-    let event: EKEvent
+    let event: EventType
     let noveltyScore: Double
     let reason: String
 }
@@ -16,7 +16,7 @@ class NoveltyAnalyzer {
         self.noveltyThreshold = noveltyThreshold
     }
     
-    func findNovelEvents(in events: [EKEvent]) -> [NovelEvent] {
+    func findNovelEvents(in events: [EventType]) -> [NovelEvent] {
         var novelEvents: [NovelEvent] = []
         
         for event in events {
