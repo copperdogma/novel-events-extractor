@@ -66,18 +66,20 @@ final class NoveltyAnalyzerTests: XCTestCase {
     func testEventSorting() {
         patternDetector.analyzeEvents(mockEvents)
         
-        // Create novel events on different dates
-        let laterEvent = createTestEvent(
-            title: "Doctor Appointment",
-            startDate: createDate(weekday: 5, hour: 15),
+        let earlierEvent = createTestEvent(
+            title: "Dentist Appointment",
+            startDate: createDate(weekday: 2, hour: 14),  // Monday
             calendar: "Personal"
         )
         
-        let earlierEvent = createTestEvent(
-            title: "Dentist Appointment",
-            startDate: createDate(weekday: 2, hour: 14),
+        let laterEvent = createTestEvent(
+            title: "Doctor Appointment",
+            startDate: createDate(weekday: 4, hour: 15),  // Wednesday
             calendar: "Personal"
         )
+        
+        print("Earlier event date: \(earlierEvent.startDate)")
+        print("Later event date: \(laterEvent.startDate)")
         
         let events = [laterEvent, earlierEvent]
         let novelEvents = noveltyAnalyzer.findNovelEvents(in: events)
@@ -126,14 +128,25 @@ final class NoveltyAnalyzerTests: XCTestCase {
     
     private func createDate(weekday: Int, hour: Int, minute: Int = 0) -> Date {
         let calendar = Calendar.current
-        var components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: Date())
+        let referenceDate = calendar.date(from: DateComponents(year: 2025, month: 1, day: 1))!
+        let currentWeekday = calendar.component(.weekday, from: referenceDate)
+        
+        // Calculate days to add to reach target weekday
+        // weekday: 1 = Sunday, 2 = Monday, ..., 7 = Saturday
+        var daysToAdd = weekday - currentWeekday
+        if daysToAdd <= 0 {
+            daysToAdd += 7
+        }
+        
+        // Add days and set time components
+        var components = DateComponents()
+        components.day = daysToAdd
         components.hour = hour
         components.minute = minute
+        components.second = 0
         
-        // Adjust the date to the next occurrence of the specified weekday
-        let currentWeekday = calendar.component(.weekday, from: Date())
-        let daysToAdd = (weekday - currentWeekday + 7) % 7
-        let date = calendar.date(byAdding: .day, value: daysToAdd, to: Date())!
-        return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: date)!
+        let date = calendar.date(byAdding: components, to: referenceDate)!
+        print("Creating date for weekday \(weekday): \(date)")
+        return date
     }
 } 

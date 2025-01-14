@@ -31,6 +31,11 @@ class NoveltyAnalyzer {
             }
         }
         
-        return novelEvents.sorted { $0.event.startDate < $1.event.startDate }
+        return novelEvents.sorted { 
+            guard let date1 = $0.event.startDate, let date2 = $1.event.startDate else {
+                return false
+            }
+            return date1 < date2
+        }
     }
 } 

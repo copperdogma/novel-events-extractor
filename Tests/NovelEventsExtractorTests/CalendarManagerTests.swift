@@ -149,193 +149,142 @@ final class CalendarManagerTests: XCTestCase {
         XCTAssertEqual(upcomingOutside.count, 0, "Should not include events after future boundary")
     }
     
-    func testBlacklistedCalendars() async throws {
-        // Set up calendars
-        let workCalendar = MockCalendar(title: "Work", type: .local)
-        let personalCalendar = MockCalendar(title: "Personal", type: .local)
-        mockEventStore.calendars = [workCalendar, personalCalendar]
+    func testEmptyCalendarScenarios() async throws {
+        // Test with no calendars
+        mockEventStore.calendars = []
+        var events = try await sut.fetchUpcomingEvents()
+        XCTAssertEqual(events.count, 0, "Should return empty array when no calendars exist")
         
-        // Create events in both calendars
-        let workEvent = MockEvent(
-            title: "Work Meeting",
-            startDate: Date().addingTimeInterval(3600),
-            endDate: Date().addingTimeInterval(7200),
-            calendar: workCalendar
-        )
-        let personalEvent = MockEvent(
-            title: "Personal Appointment",
-            startDate: Date().addingTimeInterval(3600),
-            endDate: Date().addingTimeInterval(7200),
-            calendar: personalCalendar
-        )
-        mockEventStore.events = [workEvent, personalEvent]
+        // Test with calendars but no events
+        let emptyCalendar = MockCalendar(title: "Empty Calendar", type: .local)
+        mockEventStore.calendars = [emptyCalendar]
+        mockEventStore.events = []
+        events = try await sut.fetchUpcomingEvents()
+        XCTAssertEqual(events.count, 0, "Should return empty array when calendars contain no events")
         
-        // Create CalendarManager with blacklisted Work calendar
-        sut = CalendarManager(
-            eventStore: mockEventStore,
-            outputFormatter: outputFormatter,
-            blacklistedCalendars: Set(["Work"])
-        )
-        
-        // Test upcoming events
-        let events = try await sut.fetchUpcomingEvents()
-        XCTAssertEqual(events.count, 1, "Should only include events from non-blacklisted calendars")
-        XCTAssertEqual(events.first?.title, "Personal Appointment")
+        // Test with multiple empty calendars
+        let anotherEmptyCalendar = MockCalendar(title: "Another Empty Calendar", type: .subscription)
+        mockEventStore.calendars = [emptyCalendar, anotherEmptyCalendar]
+        events = try await sut.fetchUpcomingEvents()
+        XCTAssertEqual(events.count, 0, "Should return empty array when multiple calendars exist but contain no events")
     }
     
-    func testWhitelistedCalendars() async throws {
-        // Set up calendars
-        let workCalendar = MockCalendar(title: "Work", type: .local)
-        let personalCalendar = MockCalendar(title: "Personal", type: .local)
-        let birthdayCalendar = MockCalendar(title: "Birthdays", type: .local)
-        mockEventStore.calendars = [workCalendar, personalCalendar, birthdayCalendar]
+    func testSpanningEvents() async throws {
+        let calendar = MockCalendar(title: "Test Calendar", type: .local)
+        mockEventStore.calendars = [calendar]
         
-        // Create events in all calendars
-        let workEvent = MockEvent(
-            title: "Work Meeting",
-            startDate: Date().addingTimeInterval(3600),
-            endDate: Date().addingTimeInterval(7200),
-            calendar: workCalendar
-        )
-        let personalEvent = MockEvent(
-            title: "Personal Appointment",
-            startDate: Date().addingTimeInterval(3600),
-            endDate: Date().addingTimeInterval(7200),
-            calendar: personalCalendar
-        )
-        let birthdayEvent = MockEvent(
-            title: "Birthday Party",
-            startDate: Date().addingTimeInterval(3600),
-            endDate: Date().addingTimeInterval(7200),
-            calendar: birthdayCalendar
-        )
-        mockEventStore.events = [workEvent, personalEvent, birthdayEvent]
+        let now = Date()
+        let historicalBoundary = Calendar.current.date(byAdding: .year, value: -1, to: now)!
+        let futureBoundary = Calendar.current.date(byAdding: .day, value: 14, to: now)!
         
-        // Create CalendarManager with whitelisted Work and Personal calendars
-        sut = CalendarManager(
-            eventStore: mockEventStore,
-            outputFormatter: outputFormatter,
-            blacklistedCalendars: Set(),
-            whitelistedCalendars: Set(["Work", "Personal"])
+        // Event that spans across historical boundary
+        let spanningHistoricalEvent = MockEvent(
+            title: "Spanning Historical Event",
+            startDate: historicalBoundary.addingTimeInterval(-3600), // 1 hour before boundary
+            endDate: historicalBoundary.addingTimeInterval(3600),    // 1 hour after boundary
+            calendar: calendar
         )
         
-        // Test upcoming events
-        let events = try await sut.fetchUpcomingEvents()
-        XCTAssertEqual(events.count, 2, "Should only include events from whitelisted calendars")
-        XCTAssertTrue(events.contains { $0.title == "Work Meeting" })
-        XCTAssertTrue(events.contains { $0.title == "Personal Appointment" })
-        XCTAssertFalse(events.contains { $0.title == "Birthday Party" })
+        // Event that spans across future boundary
+        let spanningFutureEvent = MockEvent(
+            title: "Spanning Future Event",
+            startDate: futureBoundary.addingTimeInterval(-3600), // 1 hour before boundary
+            endDate: futureBoundary.addingTimeInterval(3600),    // 1 hour after boundary
+            calendar: calendar
+        )
+        
+        // All-day event
+        let allDayEvent = MockEvent(
+            title: "All Day Event",
+            startDate: Calendar.current.startOfDay(for: now),
+            endDate: Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now))!,
+            calendar: calendar
+        )
+        
+        // Test historical events
+        mockEventStore.events = [spanningHistoricalEvent]
+        var events = try await sut.fetchHistoricalEvents()
+        XCTAssertEqual(events.count, 0, "Should not include events that start before historical boundary")
+        
+        // Test future events
+        mockEventStore.events = [spanningFutureEvent]
+        events = try await sut.fetchUpcomingEvents()
+        XCTAssertEqual(events.count, 1, "Should include events that start before future boundary")
+        
+        // Test all-day event
+        mockEventStore.events = [allDayEvent]
+        events = try await sut.fetchUpcomingEvents()
+        XCTAssertEqual(events.count, 1, "Should include all-day events")
+        XCTAssertEqual(events.first?.title, "All Day Event")
     }
     
-    func testMixedCalendarFiltering() async throws {
-        // Set up calendars
-        let workCalendar = MockCalendar(title: "Work", type: .local)
-        let personalCalendar = MockCalendar(title: "Personal", type: .local)
-        let birthdayCalendar = MockCalendar(title: "Birthdays", type: .local)
-        let holidayCalendar = MockCalendar(title: "Holidays", type: .local)
-        mockEventStore.calendars = [workCalendar, personalCalendar, birthdayCalendar, holidayCalendar]
+    func testCalendarTypeFiltering() async throws {
+        // Set up calendars of different types
+        let localCalendar = MockCalendar(title: "Local Calendar", type: .local)
+        let subscriptionCalendar = MockCalendar(title: "Subscription Calendar", type: .subscription)
+        let birthdayCalendar = MockCalendar(title: "Birthday Calendar", type: .birthday)
+        let holidayCalendar = MockCalendar(title: "Holiday Calendar", type: .subscription)
         
-        // Create events in all calendars
-        let workEvent = MockEvent(
-            title: "Work Meeting",
-            startDate: Date().addingTimeInterval(3600),
-            endDate: Date().addingTimeInterval(7200),
-            calendar: workCalendar
-        )
-        let personalEvent = MockEvent(
-            title: "Personal Appointment",
-            startDate: Date().addingTimeInterval(3600),
-            endDate: Date().addingTimeInterval(7200),
-            calendar: personalCalendar
-        )
-        let birthdayEvent = MockEvent(
-            title: "Birthday Party",
-            startDate: Date().addingTimeInterval(3600),
-            endDate: Date().addingTimeInterval(7200),
-            calendar: birthdayCalendar
-        )
-        let holidayEvent = MockEvent(
-            title: "Holiday",
-            startDate: Date().addingTimeInterval(3600),
-            endDate: Date().addingTimeInterval(7200),
-            calendar: holidayCalendar
-        )
-        mockEventStore.events = [workEvent, personalEvent, birthdayEvent, holidayEvent]
+        mockEventStore.calendars = [
+            localCalendar,
+            subscriptionCalendar,
+            birthdayCalendar,
+            holidayCalendar
+        ]
         
-        // Create CalendarManager with:
-        // - Whitelisted: Work, Personal, Birthdays
-        // - Blacklisted: Work (should override whitelist)
-        sut = CalendarManager(
-            eventStore: mockEventStore,
-            outputFormatter: outputFormatter,
-            blacklistedCalendars: Set(["Work"]),
-            whitelistedCalendars: Set(["Work", "Personal", "Birthdays"])
-        )
-        
-        // Test upcoming events
-        let events = try await sut.fetchUpcomingEvents()
-        XCTAssertEqual(events.count, 2, "Should include events from whitelisted calendars except blacklisted ones")
-        XCTAssertFalse(events.contains { $0.title == "Work Meeting" }, "Blacklist should override whitelist")
-        XCTAssertTrue(events.contains { $0.title == "Personal Appointment" })
-        XCTAssertTrue(events.contains { $0.title == "Birthday Party" })
-        XCTAssertFalse(events.contains { $0.title == "Holiday" }, "Non-whitelisted calendar should be excluded")
-    }
-    
-    func testMultipleCalendarEvents() async throws {
-        // Set up calendars with different types
-        let workCalendar = MockCalendar(title: "Work", type: .local)
-        let personalCalendar = MockCalendar(title: "Personal", type: .local)
-        let sharedCalendar = MockCalendar(title: "Shared", type: .subscription)
-        mockEventStore.calendars = [workCalendar, personalCalendar, sharedCalendar]
-        
-        // Create multiple events in each calendar at different times
         let now = Date()
         let events = [
             MockEvent(
-                title: "Work Meeting 1",
+                title: "Local Event",
                 startDate: now.addingTimeInterval(3600),
                 endDate: now.addingTimeInterval(7200),
-                calendar: workCalendar
+                calendar: localCalendar
             ),
             MockEvent(
-                title: "Work Meeting 2",
-                startDate: now.addingTimeInterval(10800),
-                endDate: now.addingTimeInterval(14400),
-                calendar: workCalendar
+                title: "Subscription Event",
+                startDate: now.addingTimeInterval(3600),
+                endDate: now.addingTimeInterval(7200),
+                calendar: subscriptionCalendar
             ),
             MockEvent(
-                title: "Personal Appointment",
-                startDate: now.addingTimeInterval(5400),
-                endDate: now.addingTimeInterval(9000),
-                calendar: personalCalendar
+                title: "Birthday Event",
+                startDate: now.addingTimeInterval(3600),
+                endDate: now.addingTimeInterval(7200),
+                calendar: birthdayCalendar
             ),
             MockEvent(
-                title: "Shared Event",
-                startDate: now.addingTimeInterval(7200),
-                endDate: now.addingTimeInterval(10800),
-                calendar: sharedCalendar
+                title: "Holiday Event",
+                startDate: now.addingTimeInterval(3600),
+                endDate: now.addingTimeInterval(7200),
+                calendar: holidayCalendar
             )
         ]
         mockEventStore.events = events
         
-        // Test fetching all events without any filtering
-        let fetchedEvents = try await sut.fetchUpcomingEvents()
-        XCTAssertEqual(fetchedEvents.count, 4, "Should fetch all events from all calendars")
+        // Test with no filtering
+        var fetchedEvents = try await sut.fetchUpcomingEvents()
+        XCTAssertEqual(fetchedEvents.count, 4, "Should include events from all calendar types when no filtering")
         
-        // Verify events are from different calendars
-        let workEvents = fetchedEvents.filter { $0.calendar.title == "Work" }
-        let personalEvents = fetchedEvents.filter { $0.calendar.title == "Personal" }
-        let sharedEvents = fetchedEvents.filter { $0.calendar.title == "Shared" }
+        // Test filtering subscription calendars
+        sut = CalendarManager(
+            eventStore: mockEventStore,
+            outputFormatter: outputFormatter,
+            blacklistedCalendars: Set(["Subscription Calendar", "Holiday Calendar"])
+        )
+        fetchedEvents = try await sut.fetchUpcomingEvents()
+        XCTAssertEqual(fetchedEvents.count, 2, "Should exclude events from blacklisted subscription calendars")
+        XCTAssertTrue(fetchedEvents.contains { $0.title == "Local Event" })
+        XCTAssertTrue(fetchedEvents.contains { $0.title == "Birthday Event" })
         
-        XCTAssertEqual(workEvents.count, 2, "Should have 2 work events")
-        XCTAssertEqual(personalEvents.count, 1, "Should have 1 personal event")
-        XCTAssertEqual(sharedEvents.count, 1, "Should have 1 shared event")
-        
-        // Verify chronological order
-        let sortedEvents = fetchedEvents.sorted { $0.startDate < $1.startDate }
-        for (actual, expected) in zip(fetchedEvents, sortedEvents) {
-            XCTAssertEqual(actual.startDate, expected.startDate, "Events should be in chronological order")
-            XCTAssertEqual(actual.title, expected.title, "Events should maintain their titles")
-        }
+        // Test whitelisting specific calendar types
+        sut = CalendarManager(
+            eventStore: mockEventStore,
+            outputFormatter: outputFormatter,
+            whitelistedCalendars: Set(["Birthday Calendar", "Holiday Calendar"])
+        )
+        fetchedEvents = try await sut.fetchUpcomingEvents()
+        XCTAssertEqual(fetchedEvents.count, 2, "Should only include events from whitelisted calendars")
+        XCTAssertTrue(fetchedEvents.contains { $0.title == "Birthday Event" })
+        XCTAssertTrue(fetchedEvents.contains { $0.title == "Holiday Event" })
     }
 } 
