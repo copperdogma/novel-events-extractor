@@ -31,7 +31,9 @@ extension EKEventStore: EventStoreType {
     }
     
     func predicateForEvents(withStart startDate: Date, end endDate: Date, calendars: [CalendarType]?) -> NSPredicate {
-        return predicateForEvents(withStart: startDate, end: endDate, calendars: calendars as? [EKCalendar])
+        return predicateForEvents(withStart: startDate, 
+                                end: endDate, 
+                                calendars: calendars as? [EKCalendar])
     }
 }
 

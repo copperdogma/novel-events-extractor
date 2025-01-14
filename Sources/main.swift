@@ -30,6 +30,35 @@ struct NovelEventsExtractor: ParsableCommand {
     @Flag(name: .long, help: "Enable debug output")
     var debug: Bool = false
     
+    // Dependencies for testing
+    private var _eventStore: EventStoreType?
+    var eventStore: EventStoreType {
+        get { _eventStore ?? EKEventStore() }
+        set { _eventStore = newValue }
+    }
+    var outputPath: String = "novel_events.txt"
+    
+    // Required by ParsableCommand
+    init() {}
+    
+    // Required by Decodable
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        blacklistFile = try container.decodeIfPresent(String.self, forKey: .blacklistFile)
+        blacklist = try container.decodeIfPresent(String.self, forKey: .blacklist)
+        whitelistFile = try container.decodeIfPresent(String.self, forKey: .whitelistFile)
+        whitelist = try container.decodeIfPresent(String.self, forKey: .whitelist)
+        debug = try container.decode(Bool.self, forKey: .debug)
+    }
+    
+    private enum CodingKeys: String, CodingKey {
+        case blacklistFile
+        case blacklist
+        case whitelistFile
+        case whitelist
+        case debug
+    }
+    
     mutating func run() throws {
         // Parse blacklist/whitelist options
         var blacklistedCalendars: Set<String> = []
@@ -61,14 +90,19 @@ struct NovelEventsExtractor: ParsableCommand {
         
         // Initialize components with the parsed options
         let outputFormatter = OutputFormatter(isDebugEnabled: debug)
-        let calendarManager = CalendarManager(outputFormatter: outputFormatter, 
-                                            blacklistedCalendars: blacklistedCalendars,
-                                            whitelistedCalendars: whitelistedCalendars)
+        let calendarManager = CalendarManager(eventStore: eventStore,
+                                           outputFormatter: outputFormatter, 
+                                           blacklistedCalendars: blacklistedCalendars,
+                                           whitelistedCalendars: whitelistedCalendars)
         let patternDetector = PatternDetector(outputFormatter: outputFormatter)
         let noveltyAnalyzer = NoveltyAnalyzer(patternDetector: patternDetector)
         
+        // Capture values needed in the task
+        let path = outputPath
+        
         // Create a semaphore to wait for the async task to complete
         let semaphore = DispatchSemaphore(value: 0)
+        var taskError: Error?
         
         // Run the analysis
         Task {
@@ -82,22 +116,30 @@ struct NovelEventsExtractor: ParsableCommand {
                 
                 // Format and write results
                 let output = outputFormatter.formatNovelEvents(novelEvents, lookAheadDays: 14)
-                try output.write(toFile: "novel_events.txt", atomically: true, encoding: .utf8)
+                try output.write(toFile: path, atomically: true, encoding: .utf8)
                 print(output)
-                print("\nResults written to novel_events.txt")
+                print("\nResults written to \(path)")
                 
                 // Signal completion
                 semaphore.signal()
             } catch {
+                taskError = error
                 print("Error: \(error)")
                 semaphore.signal()
-                throw error
             }
         }
         
         // Wait for the async task to complete
         semaphore.wait()
+        
+        // If there was an error in the task, throw it
+        if let error = taskError {
+            throw error
+        }
     }
 }
 
-NovelEventsExtractor.main()
+// Only run main() when not testing
+if !_isDebugAssertConfiguration() {
+    NovelEventsExtractor.main()
+}

@@ -42,6 +42,11 @@ class OutputFormatter {
         timestampFormatter.timeZone = .current
         output += "Generated: \(timestampFormatter.string(from: now))\n\n"
         
+        if events.isEmpty {
+            output += "No events found\n"
+            return output
+        }
+        
         // Format each event
         for novelEvent in events {
             let event = novelEvent.event
@@ -51,6 +56,7 @@ class OutputFormatter {
             let calendar = event.calendar.title
             
             output += "\(date) \(time) \(title) [\(calendar)]\n"
+            output += "  Reason: \(novelEvent.reason)\n"
         }
         
         return output
