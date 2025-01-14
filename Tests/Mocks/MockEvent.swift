@@ -3,24 +3,31 @@ import EventKit
 @testable import NovelEventsExtractor
 
 class MockEvent: EventType {
-    let title: String!
-    let startDate: Date!
-    let endDate: Date!
-    let calendar: EKCalendar!
-    private let mockCalendar: CalendarType
+    var title: String!
+    var startDate: Date!
+    var endDate: Date!
+    var calendar: EKCalendar!
+    private var mockCalendar: CalendarType
     
-    init(title: String,
-         startDate: Date,
-         endDate: Date,
-         calendar: CalendarType) {
+    init(title: String? = nil,
+         startDate: Date? = nil,
+         endDate: Date? = nil,
+         calendar: CalendarType? = nil) {
         self.title = title
         self.startDate = startDate
         self.endDate = endDate
-        self.mockCalendar = calendar
+        self.mockCalendar = calendar ?? MockCalendar()
+        
         // Create a mock EKCalendar for compatibility
         let mockEKCalendar = EKCalendar(for: .event, eventStore: EKEventStore())
-        mockEKCalendar.setValue(calendar.title, forKey: "title")
+        mockEKCalendar.title = self.mockCalendar.title
         self.calendar = mockEKCalendar
+    }
+    
+    // Allow updating the calendar and sync it with the EKCalendar
+    func setCalendar(_ newCalendar: CalendarType) {
+        self.mockCalendar = newCalendar
+        self.calendar.title = newCalendar.title
     }
 }
 

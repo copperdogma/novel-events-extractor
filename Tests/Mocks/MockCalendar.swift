@@ -3,10 +3,10 @@ import EventKit
 @testable import NovelEventsExtractor
 
 class MockCalendar: CalendarType {
-    let title: String
-    let type: EKCalendarType
+    var title: String
+    var type: EKCalendarType
     
-    init(title: String, type: EKCalendarType = .local) {
+    init(title: String = "", type: EKCalendarType = .local) {
         self.title = title
         self.type = type
     }
