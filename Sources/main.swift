@@ -90,6 +90,12 @@ struct NovelEventsExtractor: ParsableCommand {
         
         // Initialize components with the parsed options
         let outputFormatter = OutputFormatter(isDebugEnabled: debug)
+        outputFormatter.addDebug("\nStarting Novel Events Extractor with debug mode enabled")
+        outputFormatter.addDebug("Blacklisted calendars: \(blacklistedCalendars)")
+        if let whitelist = whitelistedCalendars {
+            outputFormatter.addDebug("Whitelisted calendars: \(whitelist)")
+        }
+        
         let calendarManager = CalendarManager(eventStore: eventStore,
                                            outputFormatter: outputFormatter, 
                                            blacklistedCalendars: blacklistedCalendars,
@@ -99,6 +105,7 @@ struct NovelEventsExtractor: ParsableCommand {
         
         // Capture values needed in the task
         let path = outputPath
+        outputFormatter.addDebug("Output will be written to: \(path)")
         
         // Create a semaphore to wait for the async task to complete
         let semaphore = DispatchSemaphore(value: 0)
@@ -107,18 +114,28 @@ struct NovelEventsExtractor: ParsableCommand {
         // Run the analysis
         Task {
             do {
+                outputFormatter.addDebug("\nRequesting calendar access...")
                 try await calendarManager.requestAccess()
-                let historicalEvents = try await calendarManager.fetchHistoricalEvents()
-                let upcomingEvents = try await calendarManager.fetchUpcomingEvents()
                 
+                outputFormatter.addDebug("\nFetching historical events...")
+                let historicalEvents = try await calendarManager.fetchHistoricalEvents()
+                outputFormatter.addDebug("Found \(historicalEvents.count) historical events")
+                
+                outputFormatter.addDebug("\nAnalyzing patterns...")
                 patternDetector.analyzeEvents(historicalEvents)
+                
+                outputFormatter.addDebug("\nFetching upcoming events...")
+                let upcomingEvents = try await calendarManager.fetchUpcomingEvents()
+                outputFormatter.addDebug("Found \(upcomingEvents.count) upcoming events")
+                
+                outputFormatter.addDebug("\nAnalyzing novelty...")
                 let novelEvents = noveltyAnalyzer.findNovelEvents(in: upcomingEvents)
+                outputFormatter.addDebug("Found \(novelEvents.count) novel events")
                 
                 // Format and write results
                 let output = outputFormatter.formatNovelEvents(novelEvents, lookAheadDays: 14)
                 try output.write(toFile: path, atomically: true, encoding: .utf8)
-                print(output)
-                print("\nResults written to \(path)")
+                outputFormatter.addDebug("\nResults written to \(path)")
                 
                 // Signal completion
                 semaphore.signal()
@@ -139,7 +156,5 @@ struct NovelEventsExtractor: ParsableCommand {
     }
 }
 
-// Only run main() when not testing
-if !_isDebugAssertConfiguration() {
-    NovelEventsExtractor.main()
-}
+// Run the program
+NovelEventsExtractor.main()

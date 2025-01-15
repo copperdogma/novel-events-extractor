@@ -81,7 +81,9 @@ class OutputFormatter {
                 let title = (event.title?.isEmpty ?? true) ? "[Untitled Event]" : event.title!
                 let calendarTitle = event.calendar.title
                 output += "(No Date) \(title) [\(calendarTitle)]\n"
-                output += "  Reason: \(novelEvent.reason)\n"
+                if isDebugEnabled {
+                    output += "  Reason: \(novelEvent.reason)\n"
+                }
                 continue
             }
             
@@ -123,7 +125,9 @@ class OutputFormatter {
             let calendarTitle = event.calendar.title
             
             output += "\(dateTimeStr) \(title) [\(calendarTitle)]\n"
-            output += "  Reason: \(novelEvent.reason)\n"
+            if isDebugEnabled {
+                output += "  Reason: \(novelEvent.reason)\n"
+            }
         }
         
         return output

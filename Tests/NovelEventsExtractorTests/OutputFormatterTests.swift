@@ -37,7 +37,9 @@ final class OutputFormatterTests: XCTestCase {
         
         XCTAssertTrue(output.contains("Novel events found in next 14 days:"), "Missing header")
         XCTAssertTrue(output.contains("Jan 15 1000 Test Event [Test Calendar]"), "Missing event details")
-        XCTAssertTrue(output.contains("Test reason"), "Missing novelty reason")
+        if outputFormatter.isDebugEnabled {
+            XCTAssertTrue(output.contains("Test reason"), "Missing novelty reason")
+        }
     }
     
     func testFormatNovelEventsEmpty() {
@@ -117,6 +119,7 @@ final class OutputFormatterTests: XCTestCase {
     }
     
     func testDifferentNoveltyScores() {
+        outputFormatter = OutputFormatter(isDebugEnabled: true)
         let events = [
             NovelEvent(event: mockEvent, noveltyScore: 1.0, reason: "Perfect novelty"),
             NovelEvent(event: mockEvent, noveltyScore: 0.5, reason: "Medium novelty"),

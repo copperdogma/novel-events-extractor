@@ -77,6 +77,10 @@ The program uses several strategies to identify novel events:
 3. **Calendar Filtering**: Supports both blacklisting and whitelisting calendars to customize which events are analyzed.
 
 ## To Do
-- make some sort of scheduler to run this on a regular basis
+- Finish emailer
+    - ensure secrets are pulled from the environment if possible
+- create scheduler to run this on a regular basis
 - have output options after generating the file, like email or slack
 - Convert calendar source to google calendar which will be more widely useful? or at least add support for it? It'll probabyl be super annoying for people to give gcal access to their command line app
+- Make the "days to look ahead" a command line argument
+- Why is "Jan 20 1400 Nicole teaching at MRU [Cam Marsollier]" showing up again? It's not novel at all.

@@ -93,21 +93,22 @@ final class NovelEventsExtractorTests: XCTestCase {
     }
     
     func testCalendarAccess() throws {
+        // Test access denied
+        mockEventStore.shouldGrantAccess = false
+        do {
+            try sut.run()
+            XCTFail("Should throw an error when calendar access is denied")
+        } catch CalendarError.accessDenied {
+            // Expected error
+            XCTAssertTrue(mockEventStore.requestAccessCalled)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+        
         // Test access granted
         mockEventStore.shouldGrantAccess = true
         try sut.run()
         XCTAssertTrue(mockEventStore.requestAccessCalled)
-        
-        // Test access denied
-        mockEventStore.shouldGrantAccess = false
-        
-        // Create a new instance for the failure test
-        sut = try NovelEventsExtractor.parse([])
-        sut.eventStore = mockEventStore
-        
-        XCTAssertThrowsError(try sut.run()) { error in
-            XCTAssertEqual(error as? CalendarError, CalendarError.accessDenied)
-        }
     }
     
     func testEventAnalysis() throws {

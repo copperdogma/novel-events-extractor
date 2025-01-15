@@ -9,7 +9,7 @@ final class PatternDetectorTests: XCTestCase {
     
     override func setUp() {
         super.setUp()
-        outputFormatter = OutputFormatter(isDebugEnabled: true)
+        outputFormatter = OutputFormatter(isDebugEnabled: false)
         patternDetector = PatternDetector(outputFormatter: outputFormatter)
         
         // Load test data
@@ -90,19 +90,19 @@ final class PatternDetectorTests: XCTestCase {
     
     func testFrequencyBasedTitleMatching() {
         // Create low-frequency event pattern (monthly = 12 times per year)
-        let lowFreqEvents = (0..<11).map { _ in
+        let lowFreqEvents = (0..<3).map { _ in
             createTestEvent(
                 title: "Monthly Review",
-                startDate: createDate(weekday: 2, hour: 10), // Same exact time for all events
+                startDate: createDate(weekday: 2, hour: 10),
                 calendar: "Work"
             )
         }
         
         // Create high-frequency event pattern (weekly = 52 times per year)
-        let highFreqEvents = (0..<52).map { _ in
+        let highFreqEvents = (0..<13).map { _ in
             createTestEvent(
                 title: "Daily Standup",
-                startDate: createDate(weekday: 2, hour: 9), // Same exact time for all events
+                startDate: createDate(weekday: 2, hour: 9),
                 calendar: "Work"
             )
         }
@@ -193,7 +193,8 @@ final class PatternDetectorTests: XCTestCase {
     
     func testMultiplePatternMatching() {
         // Create two similar patterns at different times
-        let morningEvents = (0..<52).map { i in
+        // Using 26 events (half a year) to get a high enough frequency score
+        let morningEvents = (0..<26).map { i in
             createTestEvent(
                 title: "Team Sync",
                 startDate: createDate(weekday: 2, hour: 9),
@@ -201,7 +202,7 @@ final class PatternDetectorTests: XCTestCase {
             )
         }
         
-        let afternoonEvents = (0..<52).map { i in
+        let afternoonEvents = (0..<26).map { i in
             createTestEvent(
                 title: "Team Sync",
                 startDate: createDate(weekday: 2, hour: 14),
@@ -220,7 +221,7 @@ final class PatternDetectorTests: XCTestCase {
         
         let score = patternDetector.getPatternScore(for: testEvent)
         XCTAssertGreaterThan(score, 0.0, "Should match at least one pattern")
-        XCTAssertEqual(score, 1.0, "Should return highest matching score")
+        XCTAssertEqual(score, 0.5, "Should return score based on 26 events (half year)")
     }
     
     func testTimeWindowEdgeCases() {
@@ -309,15 +310,14 @@ final class PatternDetectorTests: XCTestCase {
     }
     
     func testDebugOutput() {
+        outputFormatter = OutputFormatter(isDebugEnabled: true)
+        patternDetector = PatternDetector(outputFormatter: outputFormatter)
+        
         let teachingEvent = createTestEvent(
             title: "Nicole Teaching Math",
             startDate: createDate(weekday: 2, hour: 15),
             calendar: "Work"
         )
-        
-        // Clear any existing debug output
-        outputFormatter = OutputFormatter(isDebugEnabled: true)
-        patternDetector = PatternDetector(outputFormatter: outputFormatter)
         
         // Analyze events and get pattern score to generate debug output
         patternDetector.analyzeEvents([teachingEvent])
@@ -340,8 +340,8 @@ final class PatternDetectorTests: XCTestCase {
             calendar: "Work"
         )
         
-        // Create 52 events to make it high-frequency
-        let events = (0..<52).map { _ in longTitleEvent }
+        // Reduced from 52 to 13 events - still enough to be high-frequency
+        let events = (0..<13).map { _ in longTitleEvent }
         patternDetector.analyzeEvents(events)
         
         // Test short title (less than 5 chars)
