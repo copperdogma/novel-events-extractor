@@ -12,6 +12,7 @@ A Swift command-line tool that analyzes your calendar events to identify novel o
   - Maintains calendar context for better pattern recognition
 - Calendar filtering with blacklist/whitelist support
 - Outputs results to both console and file
+- Email notification support via Gmail SMTP
 
 ## Usage
 
@@ -36,6 +37,40 @@ swift run NovelEventsExtractor --whitelist-file whitelist.txt
 # Enable debug output
 swift run NovelEventsExtractor --debug
 ```
+
+### Email Notifications
+
+The project includes a notification script that can email the results using Gmail SMTP:
+
+1. Prerequisites:
+   - Gmail account with 2-Step Verification enabled
+   - App Password generated for Gmail (https://myaccount.google.com/apppasswords)
+   - GMAIL_APP_PASSWORD environment variable set with the app password
+
+2. Usage:
+```bash
+# Set up Gmail App Password (one-time setup)
+export GMAIL_APP_PASSWORD='your_16_char_app_password'
+
+# Basic usage
+./notify_novel_events.sh your.email@gmail.com
+
+# With calendar filtering
+./notify_novel_events.sh your.email@gmail.com --blacklist "Birthdays,Holidays"
+./notify_novel_events.sh your.email@gmail.com --whitelist "Work,Personal"
+
+# Using filter files
+./notify_novel_events.sh your.email@gmail.com --blacklist-file blacklist.txt
+./notify_novel_events.sh your.email@gmail.com --whitelist-file whitelist.txt
+```
+
+3. For daily notifications, add to crontab:
+```bash
+# Add to crontab to run daily at 9 AM (with optional calendar filtering)
+0 9 * * * export GMAIL_APP_PASSWORD='your_app_password'; cd /path/to/novel-events-extractor && ./notify_novel_events.sh your.email@gmail.com --blacklist "Birthdays,Holidays"
+```
+
+Note: The email address must be the same Gmail account used to generate the app password.
 
 ### Calendar Filtering
 
@@ -62,6 +97,9 @@ The program will:
 
 - macOS with Calendar access
 - Swift 5.9 or later
+- For email notifications:
+  - Gmail account with 2-Step Verification
+  - Gmail App Password
 
 ## How It Works
 
@@ -76,11 +114,9 @@ The program uses several strategies to identify novel events:
 
 3. **Calendar Filtering**: Supports both blacklisting and whitelisting calendars to customize which events are analyzed.
 
+4. **Email Notifications**: Uses Gmail SMTP with app-specific passwords for secure delivery of results.
+
 ## To Do
-- Finish emailer
-    - ensure secrets are pulled from the environment if possible
-- create scheduler to run this on a regular basis
-- have output options after generating the file, like email or slack
-- Convert calendar source to google calendar which will be more widely useful? or at least add support for it? It'll probabyl be super annoying for people to give gcal access to their command line app
 - Make the "days to look ahead" a command line argument
 - Why is "Jan 20 1400 Nicole teaching at MRU [Cam Marsollier]" showing up again? It's not novel at all.
+- create scheduler to run this on a regular basis
