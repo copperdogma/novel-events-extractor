@@ -135,8 +135,15 @@ class PatternDetector {
         // Debug all events
         outputFormatter.addDebug("\nScoring event:")
         outputFormatter.addDebug("- Title: \(title)")
-        outputFormatter.addDebug("- Day: \(calendar.component(.weekday, from: event.startDate))")
-        let timeComponents = calendar.dateComponents([.hour, .minute], from: event.startDate)
+        
+        guard let startDate = event.startDate else {
+            outputFormatter.addDebug("- No start date available")
+            outputFormatter.addDebug("- Calendar: \(event.calendar?.title ?? "")")
+            return 0.0 // Events with no date are considered novel
+        }
+        
+        outputFormatter.addDebug("- Day: \(calendar.component(.weekday, from: startDate))")
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: startDate)
         outputFormatter.addDebug("- Time: \(timeComponents.hour ?? 0):\(timeComponents.minute ?? 0)")
         outputFormatter.addDebug("- Calendar: \(event.calendar?.title ?? "")")
         

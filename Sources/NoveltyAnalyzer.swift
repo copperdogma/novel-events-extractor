@@ -32,10 +32,19 @@ class NoveltyAnalyzer {
         }
         
         return novelEvents.sorted { 
-            guard let date1 = $0.event.startDate, let date2 = $1.event.startDate else {
+            // If either date is nil, the non-nil date should come first
+            if $0.event.startDate == nil && $1.event.startDate != nil {
                 return false
             }
-            return date1 < date2
+            if $0.event.startDate != nil && $1.event.startDate == nil {
+                return true
+            }
+            // If both dates are nil, maintain original order
+            if $0.event.startDate == nil && $1.event.startDate == nil {
+                return false
+            }
+            // If both dates exist, sort chronologically
+            return $0.event.startDate! < $1.event.startDate!
         }
     }
 } 
