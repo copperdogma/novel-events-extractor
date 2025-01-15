@@ -36,7 +36,7 @@ final class OutputFormatterTests: XCTestCase {
         print(output)
         
         XCTAssertTrue(output.contains("Novel events found in next 14 days:"), "Missing header")
-        XCTAssertTrue(output.contains("Jan 15 1000 Test Event [Test Calendar]"), "Missing event details")
+        XCTAssertTrue(output.contains("Wed Jan 15 1000 Test Event [Test Calendar]"), "Missing event details")
         if outputFormatter.isDebugEnabled {
             XCTAssertTrue(output.contains("Test reason"), "Missing novelty reason")
         }
@@ -71,7 +71,7 @@ final class OutputFormatterTests: XCTestCase {
         let novelEvents = [NovelEvent(event: mockEvent, noveltyScore: 0.8, reason: "Test reason")]
         let output = outputFormatter.formatNovelEvents(novelEvents, lookAheadDays: 14)
         
-        XCTAssertTrue(output.contains("Jan 15 (All Day) All Day Event"), "Missing all-day event indicator")
+        XCTAssertTrue(output.contains("Wed Jan 15 (All Day) All Day Event"), "Missing all-day event indicator")
     }
     
     func testFormatMultiDayEvent() {
@@ -89,7 +89,7 @@ final class OutputFormatterTests: XCTestCase {
         print("\nActual output for testFormatMultiDayEvent:")
         print(output)
         
-        XCTAssertTrue(output.contains("Jan 15 1000 - Jan 17 1600"), "Missing multi-day event time range")
+        XCTAssertTrue(output.contains("Wed Jan 15 1000 - Fri Jan 17 1600"), "Missing multi-day event time range")
     }
     
     func testFormatSpecialCharactersAndLongTitle() {
@@ -170,8 +170,8 @@ final class OutputFormatterTests: XCTestCase {
         let novelEvents = [NovelEvent(event: mockEvent, noveltyScore: 0.8, reason: "Test reason")]
         let output = outputFormatter.formatNovelEvents(novelEvents, lookAheadDays: 14)
         
-        // Check timestamp format: yyyy-MM-dd HH:mm:ss zzz
-        let timestampPattern = #"Generated: \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [A-Z]{3,4}"#
+        // Check timestamp format: EEE yyyy-MM-dd HH:mm:ss zzz
+        let timestampPattern = #"Generated: [A-Za-z]{3} \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [A-Z]{3,4}"#
         XCTAssertTrue(output.range(of: timestampPattern, options: .regularExpression) != nil, "Timestamp format is incorrect")
     }
     
@@ -200,7 +200,7 @@ final class OutputFormatterTests: XCTestCase {
         let novelEvents = [NovelEvent(event: mockEvent, noveltyScore: 0.8, reason: "Test reason")]
         let output = outputFormatter.formatNovelEvents(novelEvents, lookAheadDays: 14)
         
-        XCTAssertTrue(output.contains("Jan 15 (All Day) - Jan 17 (All Day)"), "Multi-day all-day event not formatted correctly")
+        XCTAssertTrue(output.contains("Wed Jan 15 (All Day) - Fri Jan 17 (All Day)"), "Multi-day all-day event not formatted correctly")
     }
     
     func testTimezoneHandling() {
@@ -289,7 +289,7 @@ final class OutputFormatterTests: XCTestCase {
         let novelEvents = [NovelEvent(event: mockEvent, noveltyScore: 0.8, reason: "Test reason")]
         let output = outputFormatter.formatNovelEvents(novelEvents, lookAheadDays: 14)
         
-        XCTAssertTrue(output.contains("Jan 15 1300"), "Event time should be converted to NY timezone")
+        XCTAssertTrue(output.contains("Wed Jan 15 1300"), "Event time should be converted to NY timezone")
     }
     
     func testEventSpanningDST() {
@@ -324,7 +324,7 @@ final class OutputFormatterTests: XCTestCase {
         print("\nActual output for testEventSpanningDST:")
         print(output)
         
-        XCTAssertTrue(output.contains("Mar 09 0100 - Mar 10 1300"), "Should show correct times across DST change")
+        XCTAssertTrue(output.contains("Sun Mar 09 0100 - Mon Mar 10 1300"), "Should show correct times across DST change")
     }
     
     func testEventWithNegativeDuration() {
@@ -341,7 +341,7 @@ final class OutputFormatterTests: XCTestCase {
         let output = outputFormatter.formatNovelEvents(novelEvents, lookAheadDays: 14)
         
         // The formatter should handle this gracefully by just showing the start time
-        XCTAssertTrue(output.contains("Jan 15 1000"), "Should show start time despite negative duration")
+        XCTAssertTrue(output.contains("Wed Jan 15 1000"), "Should show start time despite negative duration")
         XCTAssertTrue(output.contains("Negative Duration Event"), "Event title should be included")
     }
     

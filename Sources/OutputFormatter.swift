@@ -16,7 +16,7 @@ class OutputFormatter {
     init(isDebugEnabled: Bool = true) {
         self.isDebugEnabled = isDebugEnabled
         dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "MMM dd"
+        dateFormatter.dateFormat = "EEE MMM dd"
         dateFormatter.timeZone = TimeZone.current
         
         timeFormatter = DateFormatter()
@@ -52,7 +52,7 @@ class OutputFormatter {
         // Add generation timestamp
         let now = Date()
         let timestampFormatter = DateFormatter()
-        timestampFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss zzz"
+        timestampFormatter.dateFormat = "EEE yyyy-MM-dd HH:mm:ss zzz"
         timestampFormatter.timeZone = formatterTimeZone
         timestampFormatter.locale = Locale(identifier: "en_US_POSIX")
         output += "Generated: \(timestampFormatter.string(from: now))\n\n"
