@@ -33,12 +33,12 @@ struct EventPattern {
         let patternTime = calendar.dateComponents([.hour, .minute], from: timeOfDay)
         let hourDiff = abs((timeComponents.hour ?? 0) - (patternTime.hour ?? 0))
         
-        // Check if it's the same day of the week
+        // Check if it's the same day of the week (ignore for teaching events)
         let eventDayOfWeek = calendar.component(.weekday, from: event.startDate)
-        let dayMatches = eventDayOfWeek == dayOfWeek
+        let dayMatches = patternTitle.contains("teaching") || eventDayOfWeek == dayOfWeek
         
         // Consider events similar if they're in the same calendar, have similar titles,
-        // occur at similar times, and on the same day of the week
+        // occur at similar times, and on the same day of the week (unless it's a teaching event)
         return self.calendar == event.calendar.title &&
                titleMatches &&
                hourDiff <= 1 &&
@@ -52,6 +52,14 @@ class PatternDetector {
     
     init(outputFormatter: OutputFormatter) {
         self.outputFormatter = outputFormatter
+    }
+    
+    private func createPatternKey(title: String, dayOfWeek: Int, hour: Int, minute: Int, calendarTitle: String) -> String {
+        // For teaching events, ignore the day of week to group them together regardless of day
+        if title.lowercased().contains("teaching") {
+            return "\(hour):\(minute)|\(title)|\(calendarTitle)"
+        }
+        return "\(dayOfWeek)|\(hour):\(minute)|\(title)|\(calendarTitle)"
     }
     
     func analyzeEvents(_ events: [EventType]) {
@@ -72,8 +80,12 @@ class PatternDetector {
             let hour = timeComponents.hour ?? 0
             let minute = timeComponents.minute ?? 0
             
-            // Create a unique key for this event pattern
-            let key = "\(dayOfWeek)|\(hour):\(minute)|\(title)|\(calendarTitle)"
+            let key = createPatternKey(title: title,
+                                     dayOfWeek: dayOfWeek,
+                                     hour: hour,
+                                     minute: minute,
+                                     calendarTitle: calendarTitle)
+            
             patternMap[key, default: 0] += 1
             
             // Debug Nicole teaching events
@@ -91,6 +103,29 @@ class PatternDetector {
         // Convert to patterns
         patterns = patternMap.compactMap { key, frequency in
             let components = key.split(separator: "|")
+            
+            // Handle teaching events (which don't include day of week in key)
+            if components.count == 3 {
+                let timeComponents = String(components[0]).split(separator: ":")
+                guard timeComponents.count == 2,
+                      let hour = Int(timeComponents[0]),
+                      let minute = Int(timeComponents[1]) else {
+                    return nil
+                }
+                
+                let timeDate = Calendar.current.date(from: DateComponents(hour: hour, minute: minute)) ?? Date()
+                
+                // Use a default day of week since it doesn't matter for teaching events
+                return EventPattern(
+                    dayOfWeek: 1, // Use Sunday as default
+                    timeOfDay: timeDate,
+                    title: String(components[1]),
+                    calendar: String(components[2]),
+                    frequency: frequency
+                )
+            }
+            
+            // Handle regular events (which include day of week)
             guard components.count == 4,
                   let dayOfWeek = Int(components[0]) else {
                 return nil

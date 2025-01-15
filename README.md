@@ -118,5 +118,4 @@ The program uses several strategies to identify novel events:
 
 ## To Do
 - Make the "days to look ahead" a command line argument
-- Why is "Jan 20 1400 Nicole teaching at MRU [Cam Marsollier]" showing up again? It's not novel at all.
 - create scheduler to run this on a regular basis

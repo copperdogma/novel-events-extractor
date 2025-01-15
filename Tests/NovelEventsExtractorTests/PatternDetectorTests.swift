@@ -451,6 +451,58 @@ final class PatternDetectorTests: XCTestCase {
         }
     }
     
+    func testTeachingEventsOnDifferentDays() {
+        // Create teaching events that occur on different days but should be treated as the same pattern
+        let tuesdayTeaching = (0..<20).map { _ in
+            createTestEvent(
+                title: "Nicole teaching at MRU",
+                startDate: createDate(weekday: 3, hour: 14), // Tuesday at 2pm
+                calendar: "Cam Marsollier"
+            )
+        }
+        
+        let thursdayTeaching = (0..<20).map { _ in
+            createTestEvent(
+                title: "Nicole teaching at MRU",
+                startDate: createDate(weekday: 5, hour: 14), // Thursday at 2pm
+                calendar: "Cam Marsollier"
+            )
+        }
+        
+        patternDetector.analyzeEvents(tuesdayTeaching + thursdayTeaching)
+        
+        // Test that a new teaching event on either day is recognized as part of the pattern
+        let tuesdayTest = createTestEvent(
+            title: "Nicole teaching at MRU",
+            startDate: createDate(weekday: 3, hour: 14),
+            calendar: "Cam Marsollier"
+        )
+        
+        let thursdayTest = createTestEvent(
+            title: "Nicole teaching at MRU",
+            startDate: createDate(weekday: 5, hour: 14),
+            calendar: "Cam Marsollier"
+        )
+        
+        let tuesdayScore = patternDetector.getPatternScore(for: tuesdayTest)
+        let thursdayScore = patternDetector.getPatternScore(for: thursdayTest)
+        
+        // Both events should have high pattern scores since they're part of the same teaching pattern
+        XCTAssertGreaterThan(tuesdayScore, 0.5, "Tuesday teaching should have high pattern score")
+        XCTAssertGreaterThan(thursdayScore, 0.5, "Thursday teaching should have high pattern score")
+        XCTAssertEqual(tuesdayScore, thursdayScore, "Both days should have the same pattern score")
+        
+        // Test that the pattern is specific to the time
+        let differentTimeTest = createTestEvent(
+            title: "Nicole teaching at MRU",
+            startDate: createDate(weekday: 3, hour: 10), // Different time
+            calendar: "Cam Marsollier"
+        )
+        
+        let differentTimeScore = patternDetector.getPatternScore(for: differentTimeTest)
+        XCTAssertLessThan(differentTimeScore, tuesdayScore, "Teaching at different time should have lower score")
+    }
+    
     // MARK: - Helper Methods
     
     private func createTestEvent(title: String, startDate: Date, calendar: String) -> MockEvent {
