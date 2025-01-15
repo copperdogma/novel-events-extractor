@@ -1,6 +1,6 @@
 # Novel Events Extractor
 
-A Swift command-line tool that analyzes your calendar events to identify novel or unusual events in the upcoming two weeks. It uses pattern recognition to learn your regular schedule and highlights events that deviate from your normal patterns.
+A Swift command-line tool that analyzes your calendar events to identify novel or unusual events. It uses pattern recognition to learn your regular schedule and highlights events that deviate from your normal patterns.
 
 ## Features
 
@@ -11,6 +11,7 @@ A Swift command-line tool that analyzes your calendar events to identify novel o
   - Considers events within an hour of each other as potentially related
   - Maintains calendar context for better pattern recognition
 - Calendar filtering with blacklist/whitelist support
+- Configurable look-ahead period (default: 14 days)
 - Outputs results to both console and file
 - Email notification support via Gmail SMTP
 
@@ -34,8 +35,8 @@ swift run NovelEventsExtractor --whitelist "Work,Personal"
 swift run NovelEventsExtractor --blacklist-file blacklist.txt
 swift run NovelEventsExtractor --whitelist-file whitelist.txt
 
-# Enable debug output
-swift run NovelEventsExtractor --debug
+# Specify look-ahead period
+swift run NovelEventsExtractor --days-to-look-ahead 30
 ```
 
 ### Email Notifications
@@ -62,12 +63,15 @@ export GMAIL_APP_PASSWORD='your_16_char_app_password'
 # Using filter files
 ./notify_novel_events.sh your.email@gmail.com --blacklist-file blacklist.txt
 ./notify_novel_events.sh your.email@gmail.com --whitelist-file whitelist.txt
+
+# Specify look-ahead period
+./notify_novel_events.sh your.email@gmail.com --days-to-look-ahead 30
 ```
 
 3. For daily notifications, add to crontab:
 ```bash
 # Add to crontab to run daily at 9 AM (with optional calendar filtering)
-0 9 * * * export GMAIL_APP_PASSWORD='your_app_password'; cd /path/to/novel-events-extractor && ./notify_novel_events.sh your.email@gmail.com --blacklist "Birthdays,Holidays"
+0 9 * * * export GMAIL_APP_PASSWORD='your_app_password'; cd /path/to/novel-events-extractor && ./notify_novel_events.sh your.email@gmail.com --blacklist "Birthdays,Holidays" --days-to-look-ahead 14
 ```
 
 Note: The email address must be the same Gmail account used to generate the app password.
@@ -90,7 +94,7 @@ You can filter which calendars to analyze using either blacklists (exclude speci
 The program will:
 - Request calendar access (required on first run)
 - Analyze your calendar events from the past year
-- Identify novel events in the next 14 days
+- Identify novel events in the specified look-ahead period
 - Output results to `novel_events.txt`
 
 ## Requirements
@@ -117,5 +121,5 @@ The program uses several strategies to identify novel events:
 4. **Email Notifications**: Uses Gmail SMTP with app-specific passwords for secure delivery of results.
 
 ## To Do
-- Make the "days to look ahead" a command line argument
 - create scheduler to run this on a regular basis
+- speed up tests again -- some are crazy slow once more

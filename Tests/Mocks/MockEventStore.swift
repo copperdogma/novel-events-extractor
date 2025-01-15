@@ -4,18 +4,18 @@ import EventKit
 class MockEventStore: EventStoreType {
     var shouldGrantAccess = true
     var shouldThrowOnFetch = false
-    var requestAccessCalled = false
-    var getCalendarsCalled = false
-    var getEventsCalled = false
-    
     var calendars: [CalendarType] = []
     var events: [EventType] = []
     
+    // Tracking properties
+    var getCalendarsCalled = false
+    var requestAccessCalled = false
+    var lastStartDate: Date?
+    var lastEndDate: Date?
+    private var lastPredicate: NSPredicate?
+    
     func requestAccess(to entityType: EKEntityType) async throws -> Bool {
         requestAccessCalled = true
-        if !shouldGrantAccess {
-            throw CalendarError.accessDenied
-        }
         return shouldGrantAccess
     }
     
@@ -25,53 +25,66 @@ class MockEventStore: EventStoreType {
     }
     
     func getEvents(matching predicate: NSPredicate) throws -> [EventType] {
-        getEventsCalled = true
         if shouldThrowOnFetch {
             throw CalendarError.accessDenied
         }
+        
+        // Filter events based on the last predicate's parameters
+        guard let startDate = lastStartDate,
+              let endDate = lastEndDate else {
+            return []
+        }
+        
         return events.filter { event in
-            predicate.evaluate(with: event)
+            guard let eventStartDate = event.startDate,
+                  let eventEndDate = event.endDate else { return false }
+            
+            // For all-day events, include them if they overlap with the range
+            if event.isAllDay {
+                let eventStartDay = Calendar.current.startOfDay(for: eventStartDate)
+                let eventEndDay = Calendar.current.startOfDay(for: eventEndDate)
+                let rangeStartDay = Calendar.current.startOfDay(for: startDate)
+                let rangeEndDay = Calendar.current.startOfDay(for: endDate)
+                
+                return eventStartDay <= rangeEndDay && eventEndDay >= rangeStartDay
+            }
+            
+            // For regular events, include if they start within the range
+            return eventStartDate >= startDate && eventStartDate < endDate
         }
     }
     
     func predicateForEvents(withStart startDate: Date, end endDate: Date, calendars: [CalendarType]?) -> NSPredicate {
+        lastStartDate = startDate
+        lastEndDate = endDate
         return NSPredicate { event, _ in
-            guard let event = event as? EventType else { return false }
-            guard let eventStartDate = event.startDate else { return false }
-            guard let eventEndDate = event.endDate else { return false }
-            guard let eventCalendar = event.calendar else { return false }
-            
-            let calendar = Calendar.current
-            
-            // Check if it's an all-day event
-            let isAllDayEvent = calendar.isDate(eventStartDate, equalTo: calendar.startOfDay(for: eventStartDate), toGranularity: .day) &&
-                               calendar.isDate(eventEndDate, equalTo: calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: eventStartDate))!, toGranularity: .day)
-            
-            // For all-day events, check if the start date is within the range
-            if isAllDayEvent {
-                let eventDay = calendar.startOfDay(for: eventStartDate)
-                let rangeStart = calendar.startOfDay(for: startDate)
-                let rangeEnd = calendar.startOfDay(for: endDate)
-                let isInRange = eventDay >= rangeStart && eventDay < rangeEnd
-                
-                // Check if event's calendar is in the allowed calendars list
-                let isAllowedCalendar = calendars?.contains { calendar in
-                    calendar.title == eventCalendar.title
-                } ?? true
-                
-                return isInRange && isAllowedCalendar
+            guard let event = event as? EventType,
+                  let eventStartDate = event.startDate,
+                  let eventEndDate = event.endDate,
+                  let eventCalendar = event.calendar else {
+                return false
             }
             
-            // For regular events, check if the start date is within the range
-            // Historical boundary is exclusive (>), future boundary is inclusive (<=)
-            let isInDateRange = eventStartDate >= startDate && eventStartDate < endDate
-            
             // Check if event's calendar is in the allowed calendars list
-            let isAllowedCalendar = calendars?.contains { calendar in
-                calendar.title == eventCalendar.title
-            } ?? true
+            if let allowedCalendars = calendars {
+                let isAllowedCalendar = allowedCalendars.contains { calendar in
+                    calendar.title == eventCalendar.title
+                }
+                guard isAllowedCalendar else { return false }
+            }
             
-            return isInDateRange && isAllowedCalendar
+            // For all-day events, include them if they overlap with the range
+            if event.isAllDay {
+                let eventStartDay = Calendar.current.startOfDay(for: eventStartDate)
+                let eventEndDay = Calendar.current.startOfDay(for: eventEndDate)
+                let rangeStartDay = Calendar.current.startOfDay(for: startDate)
+                let rangeEndDay = Calendar.current.startOfDay(for: endDate)
+                
+                return eventStartDay <= rangeEndDay && eventEndDay >= rangeStartDay
+            }
+            
+            // For regular events, include if they start within the range
+            return eventStartDate >= startDate && eventStartDate < endDate
         }
     }
 } 

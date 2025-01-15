@@ -412,4 +412,51 @@ final class CalendarManagerTests: XCTestCase {
         XCTAssertEqual(fetchedEvents[1].title, "Shared Team Event", "Second event should be middle")
         XCTAssertEqual(fetchedEvents[2].title, "Late Work Meeting", "Third event should be latest")
     }
+    
+    func testDaysToLookAhead() async throws {
+        // Test default value (14 days)
+        let defaultManager = CalendarManager(eventStore: mockEventStore,
+                                          outputFormatter: outputFormatter)
+        let _ = try await defaultManager.fetchUpcomingEvents()
+        
+        // Verify the date range for default value
+        let now = Date()
+        let calendar = Calendar.current
+        let defaultEndDate = calendar.date(byAdding: .day, value: 14, to: now)!
+        
+        guard let lastStartDate = mockEventStore.lastStartDate,
+              let lastEndDate = mockEventStore.lastEndDate else {
+            XCTFail("Date ranges not set")
+            return
+        }
+        
+        XCTAssertEqual(lastStartDate.timeIntervalSinceReferenceDate,
+                      now.timeIntervalSinceReferenceDate,
+                      accuracy: 1.0)
+        XCTAssertEqual(lastEndDate.timeIntervalSinceReferenceDate,
+                      defaultEndDate.timeIntervalSinceReferenceDate,
+                      accuracy: 1.0)
+        
+        // Test custom value (30 days)
+        let customManager = CalendarManager(eventStore: mockEventStore,
+                                         outputFormatter: outputFormatter,
+                                         daysToLookAhead: 30)
+        let _ = try await customManager.fetchUpcomingEvents()
+        
+        // Verify the date range for custom value
+        let customEndDate = calendar.date(byAdding: .day, value: 30, to: now)!
+        
+        guard let lastStartDate = mockEventStore.lastStartDate,
+              let lastEndDate = mockEventStore.lastEndDate else {
+            XCTFail("Date ranges not set")
+            return
+        }
+        
+        XCTAssertEqual(lastStartDate.timeIntervalSinceReferenceDate,
+                      now.timeIntervalSinceReferenceDate,
+                      accuracy: 1.0)
+        XCTAssertEqual(lastEndDate.timeIntervalSinceReferenceDate,
+                      customEndDate.timeIntervalSinceReferenceDate,
+                      accuracy: 1.0)
+    }
 } 

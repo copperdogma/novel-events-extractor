@@ -9,6 +9,26 @@ class MockEvent: EventType {
     var calendar: EKCalendar!
     private var mockCalendar: CalendarType
     
+    var isAllDay: Bool {
+        guard let start = startDate,
+              let end = endDate else {
+            return false
+        }
+        
+        let calendar = Calendar.current
+        let startDay = calendar.startOfDay(for: start)
+        let endDay = calendar.startOfDay(for: end)
+        let nextDay = calendar.date(byAdding: .day, value: 1, to: startDay)!
+        
+        return calendar.isDate(start, inSameDayAs: startDay) &&
+               calendar.isDate(end, inSameDayAs: endDay) &&
+               calendar.isDate(endDay, inSameDayAs: nextDay) &&
+               calendar.component(.hour, from: start) == 0 &&
+               calendar.component(.minute, from: start) == 0 &&
+               calendar.component(.hour, from: end) == 0 &&
+               calendar.component(.minute, from: end) == 0
+    }
+    
     init(title: String? = nil,
          startDate: Date? = nil,
          endDate: Date? = nil,
@@ -23,12 +43,6 @@ class MockEvent: EventType {
         mockEKCalendar.title = self.mockCalendar.title
         self.calendar = mockEKCalendar
     }
-    
-    // Allow updating the calendar and sync it with the EKCalendar
-    func setCalendar(_ newCalendar: CalendarType) {
-        self.mockCalendar = newCalendar
-        self.calendar.title = newCalendar.title
-    }
 }
 
 // Extension to make MockEvent usable where EKEvent is expected
@@ -37,6 +51,6 @@ extension MockEvent: Equatable {
         return lhs.title == rhs.title &&
                lhs.startDate == rhs.startDate &&
                lhs.endDate == rhs.endDate &&
-               lhs.mockCalendar.title == rhs.mockCalendar.title
+               lhs.calendar?.title == rhs.calendar?.title
     }
 } 

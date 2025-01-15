@@ -1,4 +1,5 @@
 import XCTest
+import ArgumentParser
 import EventKit
 @testable import NovelEventsExtractor
 
@@ -40,7 +41,7 @@ final class NovelEventsExtractorTests: XCTestCase {
         try blacklist.write(to: tempBlacklistFile, atomically: true, encoding: .utf8)
         
         // Parse with blacklist file argument
-        sut = try NovelEventsExtractor.parse(["--blacklist-file", tempBlacklistFile.path])
+        sut = try NovelEventsExtractor.parse(["-B", tempBlacklistFile.path])
         sut.eventStore = mockEventStore
         try sut.run()
         
@@ -54,7 +55,7 @@ final class NovelEventsExtractorTests: XCTestCase {
         try whitelist.write(to: tempWhitelistFile, atomically: true, encoding: .utf8)
         
         // Parse with whitelist file argument
-        sut = try NovelEventsExtractor.parse(["--whitelist-file", tempWhitelistFile.path])
+        sut = try NovelEventsExtractor.parse(["-W", tempWhitelistFile.path])
         sut.eventStore = mockEventStore
         try sut.run()
         
@@ -64,7 +65,7 @@ final class NovelEventsExtractorTests: XCTestCase {
     
     func testBlacklistFromCommandLine() throws {
         // Parse with blacklist argument
-        sut = try NovelEventsExtractor.parse(["--blacklist", "Calendar1,Calendar2"])
+        sut = try NovelEventsExtractor.parse(["-b", "Calendar1,Calendar2"])
         sut.eventStore = mockEventStore
         try sut.run()
         
@@ -74,7 +75,7 @@ final class NovelEventsExtractorTests: XCTestCase {
     
     func testWhitelistFromCommandLine() throws {
         // Parse with whitelist argument
-        sut = try NovelEventsExtractor.parse(["--whitelist", "Calendar3,Calendar4"])
+        sut = try NovelEventsExtractor.parse(["-w", "Calendar3,Calendar4"])
         sut.eventStore = mockEventStore
         try sut.run()
         
@@ -84,7 +85,7 @@ final class NovelEventsExtractorTests: XCTestCase {
     
     func testDebugOutput() throws {
         // Parse with debug flag
-        sut = try NovelEventsExtractor.parse(["--debug"])
+        sut = try NovelEventsExtractor.parse(["-D"])
         sut.eventStore = mockEventStore
         try sut.run()
         
@@ -129,7 +130,7 @@ final class NovelEventsExtractorTests: XCTestCase {
         try sut.run()
         
         // Verify events were analyzed
-        XCTAssertTrue(mockEventStore.getEventsCalled)
+        XCTAssertTrue(mockEventStore.getCalendarsCalled)
     }
     
     func testOutputFile() throws {
@@ -143,5 +144,36 @@ final class NovelEventsExtractorTests: XCTestCase {
         
         // Clean up
         try? FileManager.default.removeItem(atPath: testOutputPath)
+    }
+    
+    func testDaysToLookAheadArgument() throws {
+        // Test default value
+        sut = try NovelEventsExtractor.parse([])
+        XCTAssertEqual(sut.daysToLookAhead, 14, "Default value should be 14 days")
+        
+        // Test custom value
+        sut = try NovelEventsExtractor.parse(["-d", "30"])
+        XCTAssertEqual(sut.daysToLookAhead, 30, "Should accept custom days value")
+        
+        // Test invalid value
+        XCTAssertThrowsError(try NovelEventsExtractor.parse(["-d", "invalid"])) { error in
+            print("Invalid value error type: \(type(of: error))")
+            print("Invalid value error: \(error)")
+            print("Invalid value error description: \(error.localizedDescription)")
+        }
+        
+        // Test negative value
+        XCTAssertThrowsError(try NovelEventsExtractor.parse(["-d", "-5"])) { error in
+            print("Negative value error type: \(type(of: error))")
+            print("Negative value error: \(error)")
+            print("Negative value error description: \(error.localizedDescription)")
+        }
+        
+        // Test zero value
+        XCTAssertThrowsError(try NovelEventsExtractor.parse(["-d", "0"])) { error in
+            print("Zero value error type: \(type(of: error))")
+            print("Zero value error: \(error)")
+            print("Zero value error description: \(error.localizedDescription)")
+        }
     }
 } 

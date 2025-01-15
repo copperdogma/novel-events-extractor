@@ -18,6 +18,7 @@ protocol EventType {
     var startDate: Date! { get }
     var endDate: Date! { get }
     var calendar: EKCalendar! { get }
+    var isAllDay: Bool { get }
 }
 
 // Make EKEventStore conform to EventStoreType
@@ -51,15 +52,18 @@ class CalendarManager {
     private let outputFormatter: OutputFormatter
     private let blacklistedCalendars: Set<String>
     private let whitelistedCalendars: Set<String>?
+    private let daysToLookAhead: Int
     
-    init(eventStore: EventStoreType = EKEventStore(),
+    init(eventStore: EventStoreType,
          outputFormatter: OutputFormatter,
          blacklistedCalendars: Set<String> = [],
-         whitelistedCalendars: Set<String>? = nil) {
+         whitelistedCalendars: Set<String>? = nil,
+         daysToLookAhead: Int = 14) {
         self.eventStore = eventStore
         self.outputFormatter = outputFormatter
         self.blacklistedCalendars = blacklistedCalendars
         self.whitelistedCalendars = whitelistedCalendars
+        self.daysToLookAhead = daysToLookAhead
     }
     
     func requestAccess() async throws {
@@ -93,15 +97,15 @@ class CalendarManager {
     func fetchUpcomingEvents() async throws -> [EventType] {
         let now = Date()
         let calendar = Calendar.current
-        let twoWeeksAhead = calendar.date(byAdding: .day, value: 14, to: now)!
-        return try await fetchEvents(from: now, to: twoWeeksAhead)
+        let lookAheadDate = calendar.date(byAdding: .day, value: daysToLookAhead, to: now)!
+        return try await fetchEvents(from: now, to: lookAheadDate)
     }
     
     private func fetchEvents(from startDate: Date, to endDate: Date) async throws -> [EventType] {
         let calendars = eventStore.getCalendars(for: .event)
         let filteredCalendars = calendars.filter { calendar in
             // If calendar is blacklisted, exclude it
-            guard !blacklistedCalendars.contains(calendar.title) else {
+            if blacklistedCalendars.contains(calendar.title) {
                 return false
             }
             
@@ -123,8 +127,29 @@ class CalendarManager {
         let events = try eventStore.getEvents(matching: predicate)
         outputFormatter.addDebug("Found \(events.count) events")
         
+        // Filter events based on calendar filtering rules
+        let filteredEvents = events.filter { event in
+            guard let calendar = event.calendar else { return false }
+            
+            // If calendar is blacklisted, exclude it
+            if blacklistedCalendars.contains(calendar.title) {
+                return false
+            }
+            
+            // If whitelist exists, only include calendars in the whitelist
+            if let whitelist = whitelistedCalendars {
+                return whitelist.contains(calendar.title)
+            }
+            
+            // If no whitelist, include all non-blacklisted calendars
+            return true
+        }
+        
         // Sort events chronologically by start date
-        return events.sorted { $0.startDate < $1.startDate }
+        return filteredEvents.sorted { 
+            guard let date1 = $0.startDate, let date2 = $1.startDate else { return false }
+            return date1 < date2 
+        }
     }
 }
 

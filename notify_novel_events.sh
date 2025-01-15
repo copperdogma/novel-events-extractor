@@ -16,17 +16,18 @@
 #   --blacklist "Calendar1,Calendar2"     Exclude these calendars
 #   --whitelist-file path/to/file.txt    Read whitelist from file
 #   --blacklist-file path/to/file.txt    Read blacklist from file
+#   --days-to-look-ahead N               Number of days to look ahead (default: 14)
 #
 # Example:
 #   export GMAIL_APP_PASSWORD='your_16_char_app_password'
-#   ./notify_novel_events.sh user@gmail.com --blacklist "Birthdays,Holidays"
+#   ./notify_novel_events.sh user@gmail.com --blacklist "Birthdays,Holidays" --days-to-look-ahead 30
 #
 # Note: The email address must be the same Gmail account used to generate the app password
 
 # Check for required email argument
 if [ $# -lt 1 ]; then
     echo "Usage: $0 <email_address> [options]"
-    echo "Example: $0 user@example.com --blacklist \"Birthdays,Holidays\""
+    echo "Example: $0 user@example.com --blacklist \"Birthdays,Holidays\" --days-to-look-ahead 30"
     echo "Note: GMAIL_APP_PASSWORD environment variable must be set"
     exit 1
 fi
